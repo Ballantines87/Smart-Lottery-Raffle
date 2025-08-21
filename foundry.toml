@@ -1,7 +1,9 @@
 [profile.default]
+auto_detect_solc = true
 src = "src"
 out = "out"
 libs = ["lib"]
+
 
 remappings = [
     "@chainlink=lib/chainlink/contracts",
@@ -12,3 +14,6 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
 ]
+
+[fuzz]
+runs = 256 # fuzz testing number of set runs - change this to test more

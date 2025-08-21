@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {DeployRaffle, HelperConfig} from "../../script/DeployRaffle.s.sol";
 import {Raffle} from "../../src/Raffle.sol";
+import {VRFCoordinatorV2_5Mock} from "chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
 contract RaffleTest is Test {
     Raffle public raffleContract;
@@ -110,5 +111,108 @@ contract RaffleTest is Test {
         );
         vm.prank(PLAYER_3);
         raffleContract.enterRaffle{value: entranceFee + 1}();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              CHECKUPKEEP
+    //////////////////////////////////////////////////////////////*/
+
+    function testCheckUpkeepReturnsFalseIfItHasNoBalance() public {
+        // Arrange
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+
+        // Act
+        (bool upkeepNeeded, ) = raffleContract.checkUpkeep("");
+        // Assert
+        assertEq(upkeepNeeded, false);
+    }
+
+    function testCheckUpkeepReturnsFalseIfRaffleIsntOpen()
+        public
+        raffleEntered
+    {
+        // Arrange
+
+        raffleContract.performUpkeep("");
+
+        // Act
+        (bool upkeepNeeded, ) = raffleContract.checkUpkeep("");
+
+        // Assert
+        assertEq(upkeepNeeded, false);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                             PERFORMUPKEEP
+    //////////////////////////////////////////////////////////////*/
+
+    function testPerformsUpkeepOnlyIfCheckUpkeepIsTrue() public raffleEntered {
+        // Arrange - done via modifier
+
+        // Act - Assert
+        raffleContract.performUpkeep("");
+    }
+
+    function testPerformUpkeepRevertsIfUpkeepNotNeeded() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffleContract.enterRaffle{value: entranceFee + 1}();
+        vm.warp(block.timestamp + 1); // the interval has not passed
+        vm.roll(block.number + 1);
+
+        // Act - Assert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Raffle.Raffle__UpkeepNotNeeded.selector,
+                address(raffleContract).balance,
+                raffleContract.getPlayers().length,
+                raffleContract.getRaffleState()
+            )
+        );
+        raffleContract.performUpkeep("");
+    }
+
+    modifier raffleEntered() {
+        vm.prank(PLAYER);
+        raffleContract.enterRaffle{value: entranceFee + 1}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        _;
+    }
+
+    // what if we need to get data relative to emitted events?
+    function testPerformUpkeepUpdatesRaffleStateAndEmitsRequestId()
+        public
+        raffleEntered
+    {
+        // Arrange - done via modifier
+        // Act
+        vm.recordLogs(); // starts recording the events emitted by the next function
+        raffleContract.performUpkeep("");
+        Vm.Log[] memory entries = vm.getRecordedLogs(); // gets the recorded logs and stores them
+
+        // Assert
+        assertEq(entries.length, 2);
+        // assertEq(
+        //     entries[0].topics[0],
+        //     keccak256("Raffle__RequestRaffleWinner(uint256,bytes)")
+        // ); /* at the index 0 of the entries array there's the function signature, hashed in keccak256 */
+        // assertEq(uint256(entries[0].topics[1] > 0));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           FULFILLRANDOMWORDS
+    //////////////////////////////////////////////////////////////*/
+
+    function testFulfillRandomWordsCanBeCalledOnlyAfterPerformUpkeep(
+        uint256 randomRequestId // FUZZ TESTING
+    ) public raffleEntered {
+        // Arrange - Act -Assert
+        vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(
+            randomRequestId,
+            address(raffleContract)
+        );
     }
 }

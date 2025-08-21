@@ -78,6 +78,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 indexed requestId,
         uint256 indexed prizeAmount
     );
+    event Raffle__RequestRaffleWinner(uint256 indexed requestId);
 
     constructor(
         uint256 entranceFee,
@@ -204,7 +205,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         // ---------
         // Interactions (external contract interactions)
         // ---------
-        s_vrfCoordinator.requestRandomWords(
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_keyHash, //gasLane - also the gas you are paying for the request
                 subId: i_subscriptionId,
@@ -216,6 +217,9 @@ contract Raffle is VRFConsumerBaseV2Plus {
                 )
             })
         );
+
+        // redundant, already emitted by the vrfCoordinator's requestRandomWords(...) function
+        emit Raffle__RequestRaffleWinner(requestId);
     }
 
     // CEI Pattern for setting up Smart Contracts functions: Checks, Effects, Interactions
