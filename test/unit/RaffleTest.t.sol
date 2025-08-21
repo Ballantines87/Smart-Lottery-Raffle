@@ -3,10 +3,11 @@ pragma solidity ^0.8.19;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {DeployRaffle, HelperConfig} from "../../script/DeployRaffle.s.sol";
+import {CodeConstants} from "../../script/HelperConfig.s.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {VRFCoordinatorV2_5Mock} from "chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
-contract RaffleTest is Test {
+contract RaffleTest is Test, CodeConstants {
     Raffle public raffleContract;
     HelperConfig public helperConfig;
     uint256 entranceFee;
@@ -205,9 +206,16 @@ contract RaffleTest is Test {
                            FULFILLRANDOMWORDS
     //////////////////////////////////////////////////////////////*/
 
+    modifier skipFork() {
+        if (block.chainid != ANVIL_LOCAL_CHAIN_ID) {
+            return;
+        }
+        _;
+    }
+
     function testFulfillRandomWordsCanBeCalledOnlyAfterPerformUpkeep(
         uint256 randomRequestId // FUZZ TESTING
-    ) public raffleEntered {
+    ) public raffleEntered skipFork {
         // Arrange - Act -Assert
         vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
         VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(

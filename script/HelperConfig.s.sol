@@ -40,6 +40,7 @@ contract HelperConfig is Script, CodeConstants {
         uint256 interval;
         uint32 callbackGasLimit; // Gas limit for the callback function
         address linkTokenContract;
+        address account;
     }
 
     constructor() {
@@ -62,7 +63,7 @@ contract HelperConfig is Script, CodeConstants {
         return getConfigByChainId(block.chainid);
     }
 
-    function getSepoliaEthConfig() private pure returns (NetworkConfig memory) {
+    function getSepoliaEthConfig() private returns (NetworkConfig memory) {
         return
             NetworkConfig({
                 entranceFee: 0.01 ether,
@@ -71,7 +72,8 @@ contract HelperConfig is Script, CodeConstants {
                 subscriptionId: 32275225250417367007975148958931003992189498697624601186611555273111010214775, // subscription created at Chainlink
                 interval: 30, // 30 seconds
                 callbackGasLimit: 500000, // 500,000 gas for the callback function
-                linkTokenContract: 0x779877A7B0D9E8603169DdbD7836e478b4624789
+                linkTokenContract: 0x779877A7B0D9E8603169DdbD7836e478b4624789,
+                account: vm.envAddress("ACCOUNT")
             });
     }
 
@@ -85,7 +87,7 @@ contract HelperConfig is Script, CodeConstants {
         }
 
         // else create it, deploy mocks, etc...
-        vm.startBroadcast();
+        vm.startBroadcast(localNetworkConfig.account);
         VRFCoordinatorV2_5Mock vrfCoordinatorMock = new VRFCoordinatorV2_5Mock(
             BASE_FEE_MOCK,
             GAS_PRICE_MOCK,
@@ -99,7 +101,8 @@ contract HelperConfig is Script, CodeConstants {
             subscriptionId: 0, // might have to fix this
             interval: 30, // 30 seconds
             callbackGasLimit: 500000, // does not matter on Anvil
-            linkTokenContract: address(linkToken) // our own fake/mock LINK token from our test/mocks folder
+            linkTokenContract: address(linkToken), // our own fake/mock LINK token from our test/mocks folder
+            account: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38 // Default account from Base.sol in foundry-std
         });
         vm.stopBroadcast();
         return localNetworkConfig;
